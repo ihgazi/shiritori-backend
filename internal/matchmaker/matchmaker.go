@@ -15,6 +15,8 @@ type MatchMaker struct {
 	queueLock   sync.Mutex
 }
 
+// Add a player to queue
+// If another player exists in queue remove both players from queue and start a game
 func (matcher *MatchMaker) QueuePlayer() bool {
 	matcher.queueLock.Lock()
 	defer matcher.queueLock.Unlock()
@@ -33,10 +35,14 @@ func (matcher *MatchMaker) QueuePlayer() bool {
 	matcher.playerQueue = matcher.playerQueue[:queueLength-1]
 
 	currRoom := room.MakeRoom(currPlayer, oppPlayer)
+	currPlayer.RegisterToRoom()
+	oppPlayer.RegisterToRoom()
+
 	go currRoom.ExecuteGame()
 	return true
 }
 
+// HTTP Handler for QueuePlayer()
 func (matcher *MatchMaker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if matcher.QueuePlayer() == true {
 		w.Write([]byte("Match found!"))
