@@ -1,8 +1,10 @@
 package matchmaker
 
 import (
+	"log"
 	"net/http"
 
+	"github.com/gorilla/websocket"
 	"github.com/ihgazi/shiritori/internal/player"
 	"github.com/ihgazi/shiritori/internal/room"
 )
@@ -17,11 +19,10 @@ type MatchMaker struct {
 
 // Add a player to queue
 // If another player exists in queue remove both players from queue and start a game
-func (matcher *MatchMaker) QueuePlayer() bool {
+// returns true if a room was allocated else false
+func (matcher *MatchMaker) QueuePlayer(currPlayer player.PlayerAgent) bool {
 	matcher.queueLock.Lock()
 	defer matcher.queueLock.Unlock()
-
-	currPlayer := player.CreateOnlineAgent()
 
 	queueLength := len(matcher.playerQueue)
 
@@ -35,18 +36,30 @@ func (matcher *MatchMaker) QueuePlayer() bool {
 	matcher.playerQueue = matcher.playerQueue[:queueLength-1]
 
 	currRoom := room.MakeRoom(currPlayer, oppPlayer)
-	currPlayer.RegisterToRoom()
-	oppPlayer.RegisterToRoom()
+	currPlayer.RegisterToRoom(currRoom.GetID())
+	oppPlayer.RegisterToRoom(currRoom.GetID())
 
 	go currRoom.ExecuteGame()
 	return true
 }
 
-// HTTP Handler for QueuePlayer()
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+// HTTP Handler for queueing
+// Upgrades to Websocket Connection
+// Instantiates PlayerAgent and calls QueuePlayer()
 func (matcher *MatchMaker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if matcher.QueuePlayer() == true {
-		w.Write([]byte("Match found!"))
-	} else {
-		w.Write([]byte("Waiting for other players..."))
+	log.Printf("Player queued")
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Error: " + err.Error()))
+		return
 	}
+
+	currPlayer := player.CreateOnlineAgent(conn)
+	matcher.QueuePlayer(currPlayer)
 }

@@ -37,3 +37,7 @@ func MakeRoom(player1 player.PlayerAgent, player2 player.PlayerAgent) *Room {
 func (room *Room) ExecuteGame() {
 	room.roomLog.Println("Game started!")
 }
+
+func (room *Room) GetID() uuid.UUID {
+	return room.roomID
+}
