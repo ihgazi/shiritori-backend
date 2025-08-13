@@ -15,6 +15,7 @@ import "sync"
 type MatchMaker struct {
 	playerQueue []player.PlayerAgent
 	queueLock   sync.Mutex
+	TestMode    bool
 }
 
 // Add a player to queue
@@ -39,7 +40,9 @@ func (matcher *MatchMaker) QueuePlayer(currPlayer player.PlayerAgent) bool {
 	currPlayer.RegisterToRoom(currRoom.GetID())
 	oppPlayer.RegisterToRoom(currRoom.GetID())
 
-	go currRoom.ExecuteGame()
+	if matcher.TestMode != true {
+		go currRoom.ExecuteGame()
+	}
 	return true
 }
 

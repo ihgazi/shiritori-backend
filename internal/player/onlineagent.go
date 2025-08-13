@@ -1,6 +1,7 @@
 package player
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -33,13 +34,42 @@ func CreateOnlineAgent(conn *websocket.Conn) *OnlineAgent {
 	return &player
 }
 
+// Add player to a room and inform client
 func (agent *OnlineAgent) RegisterToRoom(roomID uuid.UUID) {
 	agent.playerLog.Printf("Player joined Room")
 
 	agent.roomID = roomID
-	agent.playerConn.WriteJSON(Message{
-		MessageType:  "system",
-		MessageID:    roomID.String(),
-		MessageValue: "found",
+	payloadBytes, _ := json.Marshal(SystemPayload{
+		Message: "REGISTER",
 	})
+
+	agent.WriteMessage(&Message{
+		Type:    MessageTypeSystem,
+		Sender:  roomID.String(),
+		Payload: payloadBytes,
+	})
+}
+
+// Write a message to the client
+func (agent *OnlineAgent) WriteMessage(message *Message) error {
+	if err := agent.playerConn.WriteJSON(message); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Read message from websocket
+func (agent *OnlineAgent) ReadMessage() (*Message, error) {
+	message := new(Message)
+	err := agent.playerConn.ReadJSON(message)
+	if err != nil {
+		return nil, err
+	}
+
+	return message, nil
+}
+
+func (agent *OnlineAgent) CloseAgent() {
+	agent.playerConn.Close()
 }
